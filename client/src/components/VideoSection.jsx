@@ -2,7 +2,7 @@ import { useRef, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Mic, MicOff, Camera, CameraOff, User } from "lucide-react";
 
-export default function VideoSection({ isTextOnly, isMuted, isCameraOff, isPartnerMuted, isPartnerCameraOff, localStreamRef }) {
+export default function VideoSection({ isTextOnly, isMuted, isCameraOff, isPartnerMuted, isPartnerCameraOff, localStreamRef, remoteStreamRef }) {
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const [hasRemoteStream, setHasRemoteStream] = useState(false);
@@ -37,8 +37,15 @@ export default function VideoSection({ isTextOnly, isMuted, isCameraOff, isPartn
     };
 
     window.addEventListener("remote-stream", handleRemoteStream);
+
+    // If remote stream already exists (event fired before mount), attach it
+    if (remoteStreamRef?.current && remoteVideoRef.current) {
+      remoteVideoRef.current.srcObject = remoteStreamRef.current;
+      setHasRemoteStream(true);
+    }
+
     return () => window.removeEventListener("remote-stream", handleRemoteStream);
-  }, []);
+  }, [remoteStreamRef]);
 
   if (isTextOnly) return null;
 
@@ -72,22 +79,20 @@ export default function VideoSection({ isTextOnly, isMuted, isCameraOff, isPartn
 
       {/* Remote video */}
       <div className="relative flex-1 rounded-xl overflow-hidden bg-muted border border-border">
-        {hasRemoteStream ? (
-          <>
-            <video
-              ref={remoteVideoRef}
-              autoPlay
-              playsInline
-              className={`h-full w-full object-cover ${isPartnerCameraOff ? "invisible" : ""}`}
-            />
-            {isPartnerCameraOff && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
-                <CameraOff className="h-8 w-8 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Camera off</span>
-              </div>
-            )}
-          </>
-        ) : (
+        {/* Always render video so the ref stays attached */}
+        <video
+          ref={remoteVideoRef}
+          autoPlay
+          playsInline
+          className={`h-full w-full object-cover ${!hasRemoteStream || isPartnerCameraOff ? "invisible" : ""}`}
+        />
+        {isPartnerCameraOff && hasRemoteStream && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+            <CameraOff className="h-8 w-8 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">Camera off</span>
+          </div>
+        )}
+        {!hasRemoteStream && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
             <div className="h-16 w-16 rounded-full bg-secondary flex items-center justify-center">
               <User className="h-8 w-8 text-muted-foreground" />

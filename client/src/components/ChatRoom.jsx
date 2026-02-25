@@ -28,6 +28,7 @@ export default function ChatRoom() {
     skipPartner,
     disconnect,
     localStreamRef,
+    remoteStreamRef,
   } = useChatApp();
 
   if (appState === "landing") {
@@ -102,6 +103,7 @@ export default function ChatRoom() {
               isPartnerMuted={isPartnerMuted}
               isPartnerCameraOff={isPartnerCameraOff}
               localStreamRef={localStreamRef}
+              remoteStreamRef={remoteStreamRef}
             />
           </div>
         )}
