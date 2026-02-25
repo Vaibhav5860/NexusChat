@@ -17,6 +17,8 @@ export function useChatApp() {
   const [isPartnerTyping, setIsPartnerTyping] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isCameraOff, setIsCameraOff] = useState(false);
+  const [isPartnerMuted, setIsPartnerMuted] = useState(false);
+  const [isPartnerCameraOff, setIsPartnerCameraOff] = useState(false);
   const [isTextOnly, setIsTextOnly] = useState(false);
   const [interests, setInterests] = useState("");
   const [onlineCount, setOnlineCount] = useState(0);
@@ -231,6 +233,9 @@ export function useChatApp() {
           timestamp: new Date(),
         },
       ]);
+      // Reset partner media state for new match
+      setIsPartnerMuted(false);
+      setIsPartnerCameraOff(false);
 
       if (!textOnly && isInitiator) {
         // Delay to let VideoSection mount and attach listeners
@@ -253,6 +258,14 @@ export function useChatApp() {
 
     socket.on("partner-stop-typing", () => {
       setIsPartnerTyping(false);
+    });
+
+    socket.on("partner-muted", ({ isMuted: muted }) => {
+      setIsPartnerMuted(muted);
+    });
+
+    socket.on("partner-camera-off", ({ isCameraOff: camOff }) => {
+      setIsPartnerCameraOff(camOff);
     });
 
     socket.on("partner-disconnected", () => {
@@ -337,6 +350,8 @@ export function useChatApp() {
         track.enabled = !isMuted;
       });
     }
+    // Signal partner about mute state
+    socketRef.current?.emit("toggle-mute", { isMuted });
   }, [isMuted]);
 
   useEffect(() => {
@@ -345,6 +360,8 @@ export function useChatApp() {
         track.enabled = !isCameraOff;
       });
     }
+    // Signal partner about camera state
+    socketRef.current?.emit("toggle-camera", { isCameraOff });
   }, [isCameraOff]);
 
   // ─── Actions ───────────────────────────────────────────
@@ -431,6 +448,8 @@ export function useChatApp() {
     setIsMuted,
     isCameraOff,
     setIsCameraOff,
+    isPartnerMuted,
+    isPartnerCameraOff,
     isTextOnly,
     setIsTextOnly,
     interests,

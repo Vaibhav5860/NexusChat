@@ -242,6 +242,39 @@ function initSocket(server) {
       }
     });
 
+    // ─── Media State Signaling ──────────────────────────────
+    socket.on("toggle-mute", ({ isMuted }) => {
+      const roomId = userRoom.get(socket.id);
+      if (!roomId) return;
+
+      const room = activeRooms.get(roomId);
+      if (!room) return;
+
+      const partnerId = room.users.find((id) => id !== socket.id);
+      if (partnerId) {
+        const partnerSocket = io.sockets.sockets.get(partnerId);
+        if (partnerSocket) {
+          partnerSocket.emit("partner-muted", { isMuted });
+        }
+      }
+    });
+
+    socket.on("toggle-camera", ({ isCameraOff }) => {
+      const roomId = userRoom.get(socket.id);
+      if (!roomId) return;
+
+      const room = activeRooms.get(roomId);
+      if (!room) return;
+
+      const partnerId = room.users.find((id) => id !== socket.id);
+      if (partnerId) {
+        const partnerSocket = io.sockets.sockets.get(partnerId);
+        if (partnerSocket) {
+          partnerSocket.emit("partner-camera-off", { isCameraOff });
+        }
+      }
+    });
+
     // ─── WebRTC Signaling ──────────────────────────────────
     socket.on("webrtc-offer", ({ offer }) => {
       const roomId = userRoom.get(socket.id);

@@ -2,7 +2,7 @@ import { useRef, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Mic, MicOff, Camera, CameraOff, User } from "lucide-react";
 
-export default function VideoSection({ isTextOnly, isMuted, isCameraOff, localStreamRef }) {
+export default function VideoSection({ isTextOnly, isMuted, isCameraOff, isPartnerMuted, isPartnerCameraOff, localStreamRef }) {
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const [hasRemoteStream, setHasRemoteStream] = useState(false);
@@ -73,12 +73,20 @@ export default function VideoSection({ isTextOnly, isMuted, isCameraOff, localSt
       {/* Remote video */}
       <div className="relative flex-1 rounded-xl overflow-hidden bg-muted border border-border">
         {hasRemoteStream ? (
-          <video
-            ref={remoteVideoRef}
-            autoPlay
-            playsInline
-            className="h-full w-full object-cover"
-          />
+          <>
+            <video
+              ref={remoteVideoRef}
+              autoPlay
+              playsInline
+              className={`h-full w-full object-cover ${isPartnerCameraOff ? "invisible" : ""}`}
+            />
+            {isPartnerCameraOff && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+                <CameraOff className="h-8 w-8 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">Camera off</span>
+              </div>
+            )}
+          </>
         ) : (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
             <div className="h-16 w-16 rounded-full bg-secondary flex items-center justify-center">
@@ -89,6 +97,7 @@ export default function VideoSection({ isTextOnly, isMuted, isCameraOff, localSt
         )}
         <div className="absolute bottom-2 left-2 glass rounded-md px-2 py-1 text-xs text-foreground flex items-center gap-1.5">
           <User className="h-3 w-3" /> Stranger
+          {isPartnerMuted && <MicOff className="h-3 w-3 text-destructive" />}
         </div>
       </div>
     </motion.div>

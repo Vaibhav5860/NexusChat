@@ -15,6 +15,8 @@ export default function ChatRoom() {
     setIsMuted,
     isCameraOff,
     setIsCameraOff,
+    isPartnerMuted,
+    isPartnerCameraOff,
     isTextOnly,
     setIsTextOnly,
     interests,
@@ -97,6 +99,8 @@ export default function ChatRoom() {
               isTextOnly={isTextOnly}
               isMuted={isMuted}
               isCameraOff={isCameraOff}
+              isPartnerMuted={isPartnerMuted}
+              isPartnerCameraOff={isPartnerCameraOff}
               localStreamRef={localStreamRef}
             />
           </div>
