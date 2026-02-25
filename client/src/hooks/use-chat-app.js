@@ -42,8 +42,16 @@ export function useChatApp() {
     if (localStreamRef.current) return localStreamRef.current;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: true,
+        video: {
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+          frameRate: { ideal: 30, max: 30 },
+        },
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
       });
       localStreamRef.current = stream;
       window.dispatchEvent(
@@ -98,12 +106,9 @@ export function useChatApp() {
       console.log("Received remote track:", event.track.kind);
       if (event.streams && event.streams[0]) {
         remoteStreamRef.current = event.streams[0];
-        // Dispatch with a small delay to ensure VideoSection is listening
-        setTimeout(() => {
-          window.dispatchEvent(
-            new CustomEvent("remote-stream", { detail: event.streams[0] })
-          );
-        }, 100);
+        window.dispatchEvent(
+          new CustomEvent("remote-stream", { detail: event.streams[0] })
+        );
       }
     };
 
@@ -238,10 +243,10 @@ export function useChatApp() {
       setIsPartnerCameraOff(false);
 
       if (!textOnly && isInitiator) {
-        // Delay to let VideoSection mount and attach listeners
+        // Short delay to let VideoSection mount
         setTimeout(() => {
           startWebRTCRef.current?.();
-        }, 1000);
+        }, 300);
       }
     });
 
