@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Send } from "lucide-react";
 
-export default function ChatPanel({ messages, isPartnerTyping, onSendMessage }) {
+export default function ChatPanel({ messages, isPartnerTyping, onSendMessage, onTyping }) {
   const [input, setInput] = useState("");
   const scrollRef = useRef(null);
 
@@ -79,7 +79,10 @@ export default function ChatPanel({ messages, isPartnerTyping, onSendMessage }) 
           <input
             type="text"
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => {
+              setInput(e.target.value);
+              onTyping?.();
+            }}
             onKeyDown={(e) => e.key === "Enter" && handleSend()}
             placeholder="Type a message…"
             className="flex-1 rounded-lg bg-muted border border-border px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition"

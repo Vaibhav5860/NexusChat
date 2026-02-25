@@ -22,6 +22,7 @@ export default function ChatRoom() {
     onlineCount,
     startMatching,
     sendMessage,
+    emitTyping,
     skipPartner,
     disconnect,
   } = useChatApp();
@@ -41,6 +42,32 @@ export default function ChatRoom() {
 
   if (appState === "matching") {
     return <MatchingScreen />;
+  }
+
+  if (appState === "disconnected") {
+    return (
+      <div className="flex flex-col h-screen bg-background items-center justify-center gap-4">
+        <p className="text-muted-foreground">Stranger has disconnected.</p>
+        <div className="flex gap-3">
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={startMatching}
+            className="px-6 py-2.5 rounded-lg bg-primary text-primary-foreground font-medium"
+          >
+            Find New Partner
+          </motion.button>
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={disconnect}
+            className="px-6 py-2.5 rounded-lg bg-muted border border-border text-foreground font-medium"
+          >
+            Go Home
+          </motion.button>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -79,6 +106,7 @@ export default function ChatRoom() {
             messages={messages}
             isPartnerTyping={isPartnerTyping}
             onSendMessage={sendMessage}
+            onTyping={emitTyping}
           />
         </div>
       </div>
