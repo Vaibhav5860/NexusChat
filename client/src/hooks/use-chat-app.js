@@ -28,6 +28,7 @@ export function useChatApp() {
   const isInitiatorRef = useRef(false);
   const typingTimeoutRef = useRef(null);
   const isTextOnlyRef = useRef(false);
+  const iceCandidateQueue = useRef([]);
 
   // Keep ref in sync with state
   useEffect(() => {
@@ -53,21 +54,34 @@ export function useChatApp() {
     }
   }, []);
 
-  const cleanupWebRTC = useCallback(() => {
+  // Cleanup only the peer connection (keeps local stream alive for re-matching)
+  const cleanupPeer = useCallback(() => {
     if (peerRef.current) {
       peerRef.current.close();
       peerRef.current = null;
     }
+    remoteStreamRef.current = null;
+    iceCandidateQueue.current = [];
+    window.dispatchEvent(new CustomEvent("remote-stream", { detail: null }));
+  }, []);
+
+  // Full cleanup — also stops camera/mic (used when going back to landing)
+  const cleanupAll = useCallback(() => {
+    cleanupPeer();
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach((t) => t.stop());
       localStreamRef.current = null;
     }
-    remoteStreamRef.current = null;
-    window.dispatchEvent(new CustomEvent("remote-stream", { detail: null }));
     window.dispatchEvent(new CustomEvent("local-stream", { detail: null }));
-  }, []);
+  }, [cleanupPeer]);
 
   const createPeerConnection = useCallback(() => {
+    // Cleanup any existing connection first
+    if (peerRef.current) {
+      peerRef.current.close();
+      peerRef.current = null;
+    }
+
     const pc = new RTCPeerConnection(ICE_SERVERS);
 
     pc.onicecandidate = (event) => {
@@ -79,53 +93,93 @@ export function useChatApp() {
     };
 
     pc.ontrack = (event) => {
-      console.log("Received remote track");
+      console.log("Received remote track:", event.track.kind);
       if (event.streams && event.streams[0]) {
         remoteStreamRef.current = event.streams[0];
-        window.dispatchEvent(
-          new CustomEvent("remote-stream", { detail: event.streams[0] })
-        );
+        // Dispatch with a small delay to ensure VideoSection is listening
+        setTimeout(() => {
+          window.dispatchEvent(
+            new CustomEvent("remote-stream", { detail: event.streams[0] })
+          );
+        }, 100);
       }
     };
 
     pc.oniceconnectionstatechange = () => {
       console.log("ICE connection state:", pc.iceConnectionState);
+      if (pc.iceConnectionState === "connected") {
+        console.log("WebRTC connected successfully!");
+      }
+    };
+
+    pc.onnegotiationneeded = () => {
+      console.log("Negotiation needed");
     };
 
     peerRef.current = pc;
     return pc;
   }, []);
 
-  const startWebRTC = useCallback(async () => {
+  // Process any buffered ICE candidates
+  const flushIceCandidates = useCallback(async () => {
+    if (!peerRef.current || !peerRef.current.remoteDescription) return;
+    while (iceCandidateQueue.current.length > 0) {
+      const candidate = iceCandidateQueue.current.shift();
+      try {
+        await peerRef.current.addIceCandidate(new RTCIceCandidate(candidate));
+      } catch (err) {
+        console.error("Error adding buffered ICE candidate:", err);
+      }
+    }
+  }, []);
+
+  const startWebRTCRef = useRef(null);
+  const handleOfferRef = useRef(null);
+
+  startWebRTCRef.current = async () => {
+    console.log("Starting WebRTC as initiator...");
     const stream = await getLocalStream();
-    if (!stream) return;
+    if (!stream) {
+      console.error("No local stream available");
+      return;
+    }
 
     const pc = createPeerConnection();
-    stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+    stream.getTracks().forEach((track) => {
+      console.log("Adding local track:", track.kind);
+      pc.addTrack(track, stream);
+    });
 
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
-    socketRef.current?.emit("webrtc-offer", { offer });
+    socketRef.current?.emit("webrtc-offer", { offer: pc.localDescription });
     console.log("Sent WebRTC offer");
-  }, [getLocalStream, createPeerConnection]);
+  };
 
-  const handleOffer = useCallback(
-    async (offer) => {
-      const stream = await getLocalStream();
-      if (!stream) return;
+  handleOfferRef.current = async (offer) => {
+    console.log("Handling WebRTC offer as responder...");
+    const stream = await getLocalStream();
+    if (!stream) {
+      console.error("No local stream available");
+      return;
+    }
 
-      const pc = createPeerConnection();
-      stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+    const pc = createPeerConnection();
+    stream.getTracks().forEach((track) => {
+      console.log("Adding local track:", track.kind);
+      pc.addTrack(track, stream);
+    });
 
-      await pc.setRemoteDescription(new RTCSessionDescription(offer));
-      const answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
+    await pc.setRemoteDescription(new RTCSessionDescription(offer));
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
 
-      socketRef.current?.emit("webrtc-answer", { answer });
-      console.log("Sent WebRTC answer");
-    },
-    [getLocalStream, createPeerConnection]
-  );
+    socketRef.current?.emit("webrtc-answer", { answer: pc.localDescription });
+    console.log("Sent WebRTC answer");
+
+    // Flush any ICE candidates that arrived before remote description was set
+    await flushIceCandidates();
+  };
 
   // ─── Initialize Socket ─────────────────────────────────
   useEffect(() => {
@@ -150,6 +204,7 @@ export function useChatApp() {
     socket.on("matched", ({ roomId, isTextOnly: textOnly, isInitiator }) => {
       console.log(`Matched in room ${roomId}, initiator: ${isInitiator}`);
       isInitiatorRef.current = isInitiator;
+      iceCandidateQueue.current = [];
       setAppState("connected");
       setMessages([
         {
@@ -161,7 +216,10 @@ export function useChatApp() {
       ]);
 
       if (!textOnly && isInitiator) {
-        setTimeout(() => startWebRTC(), 500);
+        // Delay to let VideoSection mount and attach listeners
+        setTimeout(() => {
+          startWebRTCRef.current?.();
+        }, 1000);
       }
     });
 
@@ -181,7 +239,7 @@ export function useChatApp() {
     });
 
     socket.on("partner-disconnected", () => {
-      cleanupWebRTC();
+      cleanupPeer();
       setMessages((prev) => [
         ...prev,
         {
@@ -197,7 +255,7 @@ export function useChatApp() {
 
     socket.on("webrtc-offer", async ({ offer }) => {
       console.log("Received WebRTC offer");
-      await handleOffer(offer);
+      await handleOfferRef.current?.(offer);
     });
 
     socket.on("webrtc-answer", async ({ answer }) => {
@@ -206,18 +264,30 @@ export function useChatApp() {
         await peerRef.current.setRemoteDescription(
           new RTCSessionDescription(answer)
         );
+        // Flush any buffered ICE candidates
+        while (iceCandidateQueue.current.length > 0) {
+          const candidate = iceCandidateQueue.current.shift();
+          try {
+            await peerRef.current.addIceCandidate(new RTCIceCandidate(candidate));
+          } catch (err) {
+            console.error("Error adding buffered ICE candidate:", err);
+          }
+        }
       }
     });
 
     socket.on("webrtc-ice-candidate", async ({ candidate }) => {
-      if (peerRef.current && candidate) {
-        try {
-          await peerRef.current.addIceCandidate(
-            new RTCIceCandidate(candidate)
-          );
-        } catch (err) {
-          console.error("Error adding ICE candidate:", err);
-        }
+      if (!candidate) return;
+      // Buffer if peer connection isn't ready or remote description not set
+      if (!peerRef.current || !peerRef.current.remoteDescription) {
+        console.log("Buffering ICE candidate");
+        iceCandidateQueue.current.push(candidate);
+        return;
+      }
+      try {
+        await peerRef.current.addIceCandidate(new RTCIceCandidate(candidate));
+      } catch (err) {
+        console.error("Error adding ICE candidate:", err);
       }
     });
 
@@ -226,7 +296,7 @@ export function useChatApp() {
     });
 
     return () => {
-      cleanupWebRTC();
+      cleanupAll();
       socket.disconnect();
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -249,11 +319,16 @@ export function useChatApp() {
   }, [isCameraOff]);
 
   // ─── Actions ───────────────────────────────────────────
-  const startMatching = useCallback(() => {
+  const startMatching = useCallback(async () => {
     setAppState("matching");
     setMessages([]);
     setIsPartnerTyping(false);
-    cleanupWebRTC();
+    cleanupPeer();
+
+    // Pre-acquire camera/mic before matching so stream is ready for WebRTC
+    if (!isTextOnly && !localStreamRef.current) {
+      await getLocalStream();
+    }
 
     socketRef.current?.emit("start-matching", {
       interests: interests
@@ -262,7 +337,7 @@ export function useChatApp() {
         .filter(Boolean),
       isTextOnly,
     });
-  }, [interests, isTextOnly, cleanupWebRTC]);
+  }, [interests, isTextOnly, cleanupPeer, getLocalStream]);
 
   const sendMessage = useCallback((text) => {
     if (!text.trim()) return;
@@ -296,7 +371,7 @@ export function useChatApp() {
   }, []);
 
   const skipPartner = useCallback(() => {
-    cleanupWebRTC();
+    cleanupPeer();
     socketRef.current?.emit("skip");
     setMessages([]);
     setIsPartnerTyping(false);
@@ -309,15 +384,15 @@ export function useChatApp() {
         .filter(Boolean),
       isTextOnly: isTextOnlyRef.current,
     });
-  }, [interests, cleanupWebRTC]);
+  }, [interests, cleanupPeer]);
 
   const disconnect = useCallback(() => {
-    cleanupWebRTC();
+    cleanupAll();
     socketRef.current?.emit("disconnect-chat");
     setAppState("landing");
     setMessages([]);
     setIsPartnerTyping(false);
-  }, [cleanupWebRTC]);
+  }, [cleanupAll]);
 
   return {
     appState,

@@ -2,7 +2,7 @@ import { useRef, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Mic, MicOff, Camera, CameraOff, User } from "lucide-react";
 
-export default function VideoSection({ isTextOnly, isMuted, isCameraOff }) {
+export default function VideoSection({ isTextOnly, isMuted, isCameraOff, localStreamRef }) {
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const [hasRemoteStream, setHasRemoteStream] = useState(false);
@@ -17,8 +17,14 @@ export default function VideoSection({ isTextOnly, isMuted, isCameraOff }) {
     };
 
     window.addEventListener("local-stream", handleLocalStream);
+
+    // If stream already exists (was acquired before mount), attach it
+    if (localStreamRef?.current && localVideoRef.current) {
+      localVideoRef.current.srcObject = localStreamRef.current;
+    }
+
     return () => window.removeEventListener("local-stream", handleLocalStream);
-  }, []);
+  }, [localStreamRef]);
 
   // Listen for remote stream from WebRTC
   useEffect(() => {
