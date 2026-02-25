@@ -28,20 +28,26 @@ export default function VideoSection({ isTextOnly, isMuted, isCameraOff, isPartn
 
   // Listen for remote stream from WebRTC
   useEffect(() => {
-    const handleRemoteStream = (e) => {
-      const stream = e.detail;
+    const attachRemoteStream = (stream) => {
       if (remoteVideoRef.current) {
         remoteVideoRef.current.srcObject = stream;
+        // Explicitly play — required on mobile for audio
+        remoteVideoRef.current.play().catch((err) => {
+          console.warn("Remote video play failed (will retry on interaction):", err.message);
+        });
       }
       setHasRemoteStream(!!stream);
+    };
+
+    const handleRemoteStream = (e) => {
+      attachRemoteStream(e.detail);
     };
 
     window.addEventListener("remote-stream", handleRemoteStream);
 
     // If remote stream already exists (event fired before mount), attach it
-    if (remoteStreamRef?.current && remoteVideoRef.current) {
-      remoteVideoRef.current.srcObject = remoteStreamRef.current;
-      setHasRemoteStream(true);
+    if (remoteStreamRef?.current) {
+      attachRemoteStream(remoteStreamRef.current);
     }
 
     return () => window.removeEventListener("remote-stream", handleRemoteStream);
@@ -84,6 +90,7 @@ export default function VideoSection({ isTextOnly, isMuted, isCameraOff, isPartn
           ref={remoteVideoRef}
           autoPlay
           playsInline
+          volume={1}
           className={`h-full w-full object-cover ${!hasRemoteStream || isPartnerCameraOff ? "invisible" : ""}`}
         />
         {isPartnerCameraOff && hasRemoteStream && (
