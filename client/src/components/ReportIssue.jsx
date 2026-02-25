@@ -1,9 +1,8 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Bug, X, Github, Mail, Send } from "lucide-react";
+import { Bug, X, Github, Mail, Send, Loader2 } from "lucide-react";
 
-const GITHUB_REPO = "https://github.com/Vaibhav5860/NexusChat";
-const EMAIL = "vaibhav.work5860@gmail.com";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
 const ISSUE_TYPES = [
   { value: "bug", label: "Bug Report" },
@@ -17,12 +16,18 @@ export default function ReportIssue() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [issueUrl, setIssueUrl] = useState("");
 
   const reset = () => {
     setIssueType("bug");
     setTitle("");
     setDescription("");
     setSubmitted(false);
+    setLoading(false);
+    setError("");
+    setIssueUrl("");
   };
 
   const handleClose = () => {
@@ -30,35 +35,45 @@ export default function ReportIssue() {
     setTimeout(reset, 300);
   };
 
-  const buildGitHubUrl = () => {
-    const labels = issueType === "bug" ? "bug" : issueType === "feature" ? "enhancement" : "";
-    const body = `**Type:** ${ISSUE_TYPES.find((t) => t.value === issueType)?.label}\n\n**Description:**\n${description}\n\n---\n_Submitted from NexusChat app_`;
-    const params = new URLSearchParams({
-      title: `[${issueType.toUpperCase()}] ${title}`,
-      body,
-      ...(labels && { labels }),
-    });
-    return `${GITHUB_REPO}/issues/new?${params.toString()}`;
+  const handleSubmitGitHub = async () => {
+    if (!title.trim() || loading) return;
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch(`${API_URL}/api/report/github`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, description, issueType }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to create issue");
+      setIssueUrl(data.issueUrl || "");
+      setSubmitted(true);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const buildMailtoUrl = () => {
-    const subject = encodeURIComponent(`[NexusChat ${issueType.toUpperCase()}] ${title}`);
-    const body = encodeURIComponent(
-      `Issue Type: ${ISSUE_TYPES.find((t) => t.value === issueType)?.label}\n\nDescription:\n${description}\n\n---\nSent from NexusChat app`
-    );
-    return `mailto:${EMAIL}?subject=${subject}&body=${body}`;
-  };
-
-  const handleSubmitGitHub = () => {
-    if (!title.trim()) return;
-    window.open(buildGitHubUrl(), "_blank");
-    setSubmitted(true);
-  };
-
-  const handleSubmitEmail = () => {
-    if (!title.trim()) return;
-    window.open(buildMailtoUrl(), "_blank");
-    setSubmitted(true);
+  const handleSubmitEmail = async () => {
+    if (!title.trim() || loading) return;
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch(`${API_URL}/api/report/email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, description, issueType }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to send email");
+      setSubmitted(true);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -157,22 +172,37 @@ export default function ReportIssue() {
                     />
                   </div>
 
+                  {/* Error message */}
+                  {error && (
+                    <div className="mb-4 rounded-lg bg-red-500/10 border border-red-500/30 px-4 py-2.5 text-sm text-red-400">
+                      {error}
+                    </div>
+                  )}
+
                   {/* Submit buttons */}
                   <div className="flex gap-3">
                     <button
                       onClick={handleSubmitGitHub}
-                      disabled={!title.trim()}
+                      disabled={!title.trim() || loading}
                       className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg bg-primary text-primary-foreground font-medium text-sm transition hover:shadow-lg disabled:opacity-40 disabled:cursor-not-allowed"
                     >
-                      <Github className="h-4 w-4" />
+                      {loading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Github className="h-4 w-4" />
+                      )}
                       Submit on GitHub
                     </button>
                     <button
                       onClick={handleSubmitEmail}
-                      disabled={!title.trim()}
+                      disabled={!title.trim() || loading}
                       className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg bg-muted border border-border text-foreground font-medium text-sm transition hover:border-primary/50 disabled:opacity-40 disabled:cursor-not-allowed"
                     >
-                      <Mail className="h-4 w-4" />
+                      {loading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Mail className="h-4 w-4" />
+                      )}
                       Send Email
                     </button>
                   </div>
@@ -188,6 +218,17 @@ export default function ReportIssue() {
                     <p className="text-sm text-muted-foreground">
                       Your report helps us improve NexusChat.
                     </p>
+                    {issueUrl && (
+                      <a
+                        href={issueUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 mt-3 text-sm text-primary hover:underline"
+                      >
+                        <Github className="h-3.5 w-3.5" />
+                        View issue on GitHub
+                      </a>
+                    )}
                   </div>
                   <button
                     onClick={handleClose}
