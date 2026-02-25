@@ -50,19 +50,19 @@ export default function VideoSection({ isTextOnly, isMuted, isCameraOff, localSt
     >
       {/* Local video */}
       <div className="relative flex-1 rounded-xl overflow-hidden bg-muted border border-border">
-        {isCameraOff ? (
+        {/* Always render video so the ref stays attached */}
+        <video
+          ref={localVideoRef}
+          autoPlay
+          playsInline
+          muted
+          className={`h-full w-full object-cover scale-x-[-1] ${isCameraOff ? "invisible" : ""}`}
+        />
+        {isCameraOff && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
             <CameraOff className="h-8 w-8 text-muted-foreground" />
             <span className="text-sm text-muted-foreground">Camera off</span>
           </div>
-        ) : (
-          <video
-            ref={localVideoRef}
-            autoPlay
-            playsInline
-            muted
-            className="h-full w-full object-cover scale-x-[-1]"
-          />
         )}
         <div className="absolute bottom-2 left-2 glass rounded-md px-2 py-1 text-xs text-foreground flex items-center gap-1.5">
           <User className="h-3 w-3" /> You

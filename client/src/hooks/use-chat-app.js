@@ -110,10 +110,22 @@ export function useChatApp() {
       if (pc.iceConnectionState === "connected") {
         console.log("WebRTC connected successfully!");
       }
+      // Handle ICE failures gracefully — don't crash
+      if (pc.iceConnectionState === "failed") {
+        console.warn("ICE connection failed, attempting restart...");
+        try {
+          pc.restartIce();
+        } catch (err) {
+          console.error("ICE restart failed:", err);
+        }
+      }
     };
 
-    pc.onnegotiationneeded = () => {
-      console.log("Negotiation needed");
+    pc.onconnectionstatechange = () => {
+      console.log("Connection state:", pc.connectionState);
+      if (pc.connectionState === "failed") {
+        console.warn("Peer connection failed");
+      }
     };
 
     peerRef.current = pc;
@@ -186,6 +198,11 @@ export function useChatApp() {
     const socket = io(SOCKET_URL, {
       transports: ["websocket", "polling"],
       autoConnect: true,
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      timeout: 30000,
     });
     socketRef.current = socket;
 
@@ -291,8 +308,20 @@ export function useChatApp() {
       }
     });
 
-    socket.on("disconnect", () => {
-      console.log("Disconnected from server");
+    socket.on("disconnect", (reason) => {
+      console.log("Disconnected from server:", reason);
+      // If the server kicked us (not client-initiated), we'll auto-reconnect
+      if (reason === "io server disconnect") {
+        socket.connect(); // force reconnect
+      }
+    });
+
+    socket.on("reconnect", (attemptNumber) => {
+      console.log("Reconnected after", attemptNumber, "attempts");
+    });
+
+    socket.on("reconnect_error", (err) => {
+      console.warn("Reconnection error:", err.message);
     });
 
     return () => {
