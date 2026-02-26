@@ -78,6 +78,42 @@ export function useChatApp() {
       window.dispatchEvent(
         new CustomEvent("local-stream", { detail: stream })
       );
+
+      // If we already have a peer connection, attach new tracks and renegotiate
+      const pc = peerRef.current;
+      if (pc) {
+        try {
+          // Attach/replace senders for each track kind
+          const senders = pc.getSenders ? pc.getSenders() : [];
+          stream.getTracks().forEach((track) => {
+            const kind = track.kind;
+            // Try to find an existing sender for this kind
+            const existing = senders.find((s) => s.track && s.track.kind === kind) || senders.find((s) => !s.track && s.kind === kind);
+            if (existing && existing.replaceTrack) {
+              existing.replaceTrack(track).catch((err) => console.warn("replaceTrack failed:", err));
+            } else {
+              try {
+                pc.addTrack(track, stream);
+              } catch (err) {
+                console.warn("addTrack failed:", err);
+              }
+            }
+          });
+
+          // Create a new offer to notify remote of new senders/tracks
+          try {
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            socketRef.current?.emit("webrtc-offer", { offer: pc.localDescription });
+            console.log("Renegotiation offer sent after granting media permissions");
+          } catch (err) {
+            console.warn("Renegotiation failed:", err);
+          }
+        } catch (err) {
+          console.warn("Failed to attach local tracks to existing peer:", err);
+        }
+      }
+
       return stream;
     } catch (err) {
       console.warn("Camera+audio failed, trying audio-only:", err.message);
