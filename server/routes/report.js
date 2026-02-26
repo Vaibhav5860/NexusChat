@@ -60,12 +60,25 @@ router.post("/email", async (req, res) => {
       return res.status(400).json({ error: "Title is required" });
     }
 
+    if (!process.env.MAIL_USER || !process.env.MAIL_PASS) {
+      console.error("Email config missing: MAIL_USER or MAIL_PASS not set");
+      return res.status(500).json({ error: "Email service is not configured on the server" });
+    }
+
     const transporter = nodemailer.createTransport({
-      service: process.env.MAIL_SERVICE || "gmail",
+      host: "smtp.gmail.com",
+      port: 465,
+      secure: true,
       auth: {
         user: process.env.MAIL_USER,
         pass: process.env.MAIL_PASS,
       },
+    });
+
+    // Verify SMTP connection before sending
+    await transporter.verify().catch((err) => {
+      console.error("SMTP verification failed:", err.message);
+      throw new Error("SMTP authentication failed — check MAIL_USER and MAIL_PASS");
     });
 
     const htmlBody = `

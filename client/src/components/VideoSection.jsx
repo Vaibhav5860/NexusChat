@@ -6,6 +6,7 @@ export default function VideoSection({ isTextOnly, isMuted, isCameraOff, isPartn
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const [hasRemoteStream, setHasRemoteStream] = useState(false);
+  const playGenRef = useRef(0);
 
   // Listen for local stream from useChatApp
   useEffect(() => {
@@ -29,14 +30,31 @@ export default function VideoSection({ isTextOnly, isMuted, isCameraOff, isPartn
   // Listen for remote stream from WebRTC
   useEffect(() => {
     const attachRemoteStream = (stream) => {
-      if (remoteVideoRef.current) {
-        remoteVideoRef.current.srcObject = stream;
-        // Explicitly play — required on mobile for audio
-        remoteVideoRef.current.play().catch((err) => {
-          console.warn("Remote video play failed (will retry on interaction):", err.message);
-        });
+      // Bump generation so any in-flight play() becomes stale
+      const gen = ++playGenRef.current;
+      const video = remoteVideoRef.current;
+      if (video) {
+        // Pause first to cancel any pending play() promise
+        video.pause();
+        video.srcObject = stream;
+        if (stream && stream.active) {
+          // Wait a micro-tick so the new srcObject is fully loaded
+          // before calling play(), avoiding "interrupted by a new load" errors
+          const tryPlay = () => {
+            if (playGenRef.current !== gen) return; // stale
+            video.play().catch((err) => {
+              if (playGenRef.current !== gen) return; // stale, ignore
+              console.warn("Remote video play failed (will retry on interaction):", err.message);
+            });
+          };
+          if (video.readyState >= 2) {
+            tryPlay();
+          } else {
+            video.addEventListener("loadeddata", tryPlay, { once: true });
+          }
+        }
       }
-      setHasRemoteStream(!!stream);
+      setHasRemoteStream(!!stream && stream.active);
     };
 
     const handleRemoteStream = (e) => {
