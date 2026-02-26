@@ -59,6 +59,8 @@ export function useChatApp() {
   // ─── WebRTC Helpers ────────────────────────────────────
   const getLocalStream = useCallback(async () => {
     if (localStreamRef.current) return localStreamRef.current;
+
+    // Try full video + audio first
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
@@ -78,9 +80,35 @@ export function useChatApp() {
       );
       return stream;
     } catch (err) {
-      console.error("Failed to get local stream:", err);
-      return null;
+      console.warn("Camera+audio failed, trying audio-only:", err.message);
     }
+
+    // Fallback: audio only (camera denied)
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: false,
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
+      localStreamRef.current = stream;
+      // Mark camera off since we only have audio
+      setIsCameraOff(true);
+      window.dispatchEvent(
+        new CustomEvent("local-stream", { detail: stream })
+      );
+      return stream;
+    } catch (err) {
+      console.warn("Audio-only also failed:", err.message);
+    }
+
+    // All media denied — return null but still allow receive-only WebRTC
+    console.warn("No media permissions granted — will be receive-only");
+    setIsCameraOff(true);
+    setIsMuted(true);
+    return null;
   }, []);
 
   // Cleanup only the peer connection (keeps local stream alive for re-matching)
@@ -177,16 +205,23 @@ export function useChatApp() {
   startWebRTCRef.current = async () => {
     console.log("Starting WebRTC as initiator...");
     const stream = await getLocalStream();
-    if (!stream) {
-      console.error("No local stream available");
-      return;
-    }
 
     const pc = createPeerConnection();
-    stream.getTracks().forEach((track) => {
-      console.log("Adding local track:", track.kind);
-      pc.addTrack(track, stream);
-    });
+
+    if (stream) {
+      stream.getTracks().forEach((track) => {
+        console.log("Adding local track:", track.kind);
+        pc.addTrack(track, stream);
+      });
+    } else {
+      // No media — add a receive-only transceiver so we can still get partner's video/audio
+      console.warn("No local stream — setting up receive-only");
+      pc.addTransceiver("video", { direction: "recvonly" });
+      pc.addTransceiver("audio", { direction: "recvonly" });
+      // Tell partner our camera & mic are off
+      socketRef.current?.emit("toggle-camera", { isCameraOff: true });
+      socketRef.current?.emit("toggle-mute", { isMuted: true });
+    }
 
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
@@ -197,16 +232,23 @@ export function useChatApp() {
   handleOfferRef.current = async (offer) => {
     console.log("Handling WebRTC offer as responder...");
     const stream = await getLocalStream();
-    if (!stream) {
-      console.error("No local stream available");
-      return;
-    }
 
     const pc = createPeerConnection();
-    stream.getTracks().forEach((track) => {
-      console.log("Adding local track:", track.kind);
-      pc.addTrack(track, stream);
-    });
+
+    if (stream) {
+      stream.getTracks().forEach((track) => {
+        console.log("Adding local track:", track.kind);
+        pc.addTrack(track, stream);
+      });
+    } else {
+      // No media — add receive-only transceivers so we can still get partner's video/audio
+      console.warn("No local stream — setting up receive-only");
+      pc.addTransceiver("video", { direction: "recvonly" });
+      pc.addTransceiver("audio", { direction: "recvonly" });
+      // Tell partner our camera & mic are off
+      socketRef.current?.emit("toggle-camera", { isCameraOff: true });
+      socketRef.current?.emit("toggle-mute", { isMuted: true });
+    }
 
     await pc.setRemoteDescription(new RTCSessionDescription(offer));
     const answer = await pc.createAnswer();
