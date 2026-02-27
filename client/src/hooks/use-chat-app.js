@@ -487,17 +487,18 @@ export function useChatApp() {
     });
   }, [interests, isTextOnly, cleanupPeer, getLocalStream]);
 
-  const sendMessage = useCallback((text) => {
+  const sendMessage = useCallback((text, replyTo = null) => {
     if (!text.trim()) return;
 
     const newMsg = {
       id: Date.now().toString(),
       text,
+      replyTo: replyTo || null,
       sender: "me",
       timestamp: new Date(),
     };
     setMessages((prev) => [...prev, newMsg]);
-    socketRef.current?.emit("send-message", { text });
+    socketRef.current?.emit("send-message", { text, replyTo: replyTo || null });
 
     socketRef.current?.emit("stop-typing");
     if (typingTimeoutRef.current) {

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Bug, X, Github, Mail, Send, Loader2 } from "lucide-react";
+import { Bug, X, Github, Mail, Send, Loader2, User } from "lucide-react";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
@@ -201,9 +201,9 @@ export default function ReportIssue() {
                       {loading ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
-                        <Mail className="h-4 w-4" />
+                        <User className="h-4 w-4" />
                       )}
-                      Send Email
+                      Submit Anonymously
                     </button>
                   </div>
                 </>

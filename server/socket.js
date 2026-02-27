@@ -188,7 +188,7 @@ function initSocket(server) {
     });
 
     // ─── Chat Messages ─────────────────────────────────────
-    socket.on("send-message", ({ text }) => {
+    socket.on("send-message", ({ text, replyTo }) => {
       const roomId = userRoom.get(socket.id);
       if (!roomId) return;
 
@@ -202,6 +202,7 @@ function initSocket(server) {
           partnerSocket.emit("receive-message", {
             id: `${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
             text,
+            replyTo: replyTo || null,
             sender: "stranger",
             timestamp: new Date().toISOString(),
           });

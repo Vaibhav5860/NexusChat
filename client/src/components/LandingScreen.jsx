@@ -41,7 +41,7 @@ export default function LandingScreen({
             </div>
             <h1 className="text-4xl font-bold tracking-tight">
               <span className="text-gradient-primary">Nexus</span>
-              <span className="text-muted-foreground font-light">Chat</span>
+              <span className="text-muted-foreground font-light">OpenChat</span>
             </h1>
           </div>
 
