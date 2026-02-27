@@ -350,8 +350,22 @@ export function useChatApp() {
     socket.on("receive-message", (msg) => {
       setMessages((prev) => [
         ...prev,
-        { ...msg, timestamp: new Date(msg.timestamp) },
+        { ...msg, timestamp: new Date(msg.timestamp), reactions: msg.reactions || {} },
       ]);
+    });
+
+    // ─── Incoming reaction from partner ─────────────────────────
+    socket.on("message-reaction", ({ messageId, emoji }) => {
+      setMessages((prev) =>
+        prev.map((m) => {
+          if (m.id !== messageId) return m;
+          const current = m.reactions || {};
+          return {
+            ...m,
+            reactions: { ...current, [emoji]: (current[emoji] || 0) + 1 },
+          };
+        })
+      );
     });
 
     socket.on("partner-typing", () => {
@@ -495,6 +509,7 @@ export function useChatApp() {
       text,
       sender: "me",
       timestamp: new Date(),
+      reactions: {},
     };
     setMessages((prev) => [...prev, newMsg]);
     socketRef.current?.emit("send-message", { text });
@@ -504,6 +519,19 @@ export function useChatApp() {
       clearTimeout(typingTimeoutRef.current);
       typingTimeoutRef.current = null;
     }
+  }, []);
+
+  const sendReaction = useCallback((messageId, emoji) => {
+    // Optimistically update local message reactions
+    setMessages((prev) =>
+      prev.map((m) => {
+        if (m.id !== messageId) return m;
+        const current = m.reactions || {};
+        return { ...m, reactions: { ...current, [emoji]: (current[emoji] || 0) + 1 } };
+      })
+    );
+
+    socketRef.current?.emit("send-reaction", { messageId, emoji });
   }, []);
 
   const emitTyping = useCallback(() => {
@@ -559,6 +587,7 @@ export function useChatApp() {
     onlineCount,
     startMatching,
     sendMessage,
+    sendReaction,
     emitTyping,
     skipPartner,
     disconnect,

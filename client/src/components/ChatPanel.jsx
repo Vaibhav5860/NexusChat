@@ -2,8 +2,9 @@ import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Send } from "lucide-react";
 
-export default function ChatPanel({ messages, isPartnerTyping, onSendMessage, onTyping }) {
+export default function ChatPanel({ messages, isPartnerTyping, onSendMessage, onTyping, onReact }) {
   const [input, setInput] = useState("");
+  const [openPicker, setOpenPicker] = useState(null);
   const scrollRef = useRef(null);
 
   useEffect(() => {
@@ -47,6 +48,47 @@ export default function ChatPanel({ messages, isPartnerTyping, onSendMessage, on
                 >
                   {formatTime(msg.timestamp)}
                 </p>
+                {/* Reactions display */}
+                {msg.reactions && Object.keys(msg.reactions).length > 0 && (
+                  <div className="mt-2 flex gap-2 items-center text-sm">
+                    {Object.entries(msg.reactions).map(([emoji, count]) => (
+                      <div key={emoji} className="px-2 py-1 bg-black/5 rounded-full text-xs">
+                        <span className="mr-1">{emoji}</span>
+                        <span className="text-muted-foreground">{count}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Emoji picker trigger */}
+                <div className="mt-2 flex items-center gap-2">
+                  <button
+                    onClick={() => setOpenPicker(openPicker === msg.id ? null : msg.id)}
+                    title="React"
+                    className="text-sm text-muted-foreground hover:text-foreground"
+                  >
+                    😊
+                  </button>
+                </div>
+
+                {/* Inline emoji picker */}
+                {openPicker === msg.id && (
+                  <div className="mt-2 p-2 bg-popover border border-border rounded-lg flex gap-2 flex-wrap">
+                    {['😀','😂','😍','👍','👎','🎉','😮','😢'].map((e) => (
+                      <button
+                        key={e}
+                        onMouseDown={(ev) => ev.preventDefault()}
+                        onClick={() => {
+                          onReact?.(msg.id, e);
+                          setOpenPicker(null);
+                        }}
+                        className="p-1 text-lg"
+                      >
+                        {e}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </motion.div>
           ))}

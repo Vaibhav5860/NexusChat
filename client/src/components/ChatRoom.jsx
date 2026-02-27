@@ -115,6 +115,7 @@ export default function ChatRoom() {
             isPartnerTyping={isPartnerTyping}
             onSendMessage={sendMessage}
             onTyping={emitTyping}
+            onReact={sendReaction}
           />
         </div>
       </div>

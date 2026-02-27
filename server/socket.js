@@ -209,6 +209,29 @@ function initSocket(server) {
       }
     });
 
+    // ─── Message Reactions ─────────────────────────────────
+    // payload: { messageId, emoji }
+    socket.on("send-reaction", ({ messageId, emoji }) => {
+      const roomId = userRoom.get(socket.id);
+      if (!roomId) return;
+
+      const room = activeRooms.get(roomId);
+      if (!room) return;
+
+      const partnerId = room.users.find((id) => id !== socket.id);
+      if (partnerId) {
+        const partnerSocket = io.sockets.sockets.get(partnerId);
+        if (partnerSocket) {
+          partnerSocket.emit("message-reaction", {
+            messageId,
+            emoji,
+            sender: "stranger",
+            timestamp: new Date().toISOString(),
+          });
+        }
+      }
+    });
+
     // ─── Typing Indicator ──────────────────────────────────
     socket.on("typing", () => {
       const roomId = userRoom.get(socket.id);
