@@ -56,10 +56,10 @@ function EmojiPicker({ onSelect, onClose }) {
   return (
     <motion.div
       ref={pickerRef}
-      initial={{ opacity: 0, y: 10, scale: 0.95 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: 10, scale: 0.95 }}
-      transition={{ duration: 0.15, ease: "easeOut" }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.08 }}
       className="absolute bottom-full mb-2 right-0 z-50 w-72 rounded-2xl border border-border bg-background shadow-2xl overflow-hidden"
       style={{ boxShadow: "0 8px 32px rgba(0,0,0,0.25)" }}
     >
@@ -190,22 +190,13 @@ export default function ChatPanel({ messages, isPartnerTyping, onSendMessage, on
               >
                 {/* Reply btn — RIGHT side (my message, shown before bubble on left) */}
                 {isMe && (
-                  <AnimatePresence>
-                    {hoveredId === msg.id && (
-                      <motion.button
-                        key="reply-left"
-                        initial={{ opacity: 0, scale: 0.7 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.7 }}
-                        transition={{ duration: 0.12 }}
-                        onClick={() => handleReply(msg)}
-                        title="Reply"
-                        className="flex-shrink-0 mb-4 p-1.5 rounded-full bg-muted hover:bg-primary/20 text-muted-foreground hover:text-primary transition-colors"
-                      >
-                        <Reply className="h-3.5 w-3.5" />
-                      </motion.button>
-                    )}
-                  </AnimatePresence>
+                  <button
+                    onClick={() => handleReply(msg)}
+                    title="Reply"
+                    className="flex-shrink-0 mb-4 p-1.5 rounded-full bg-muted hover:bg-primary/20 text-muted-foreground hover:text-primary transition-colors"
+                  >
+                    <Reply className="h-3.5 w-3.5" />
+                  </button>
                 )}
 
                 {/* Bubble */}
@@ -227,22 +218,13 @@ export default function ChatPanel({ messages, isPartnerTyping, onSendMessage, on
 
                 {/* Reply btn — LEFT side (stranger's message, shown after bubble on right) */}
                 {!isMe && (
-                  <AnimatePresence>
-                    {hoveredId === msg.id && (
-                      <motion.button
-                        key="reply-right"
-                        initial={{ opacity: 0, scale: 0.7 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.7 }}
-                        transition={{ duration: 0.12 }}
-                        onClick={() => handleReply(msg)}
-                        title="Reply"
-                        className="flex-shrink-0 mb-4 p-1.5 rounded-full bg-muted hover:bg-primary/20 text-muted-foreground hover:text-primary transition-colors"
-                      >
-                        <Reply className="h-3.5 w-3.5" />
-                      </motion.button>
-                    )}
-                  </AnimatePresence>
+                  <button
+                    onClick={() => handleReply(msg)}
+                    title="Reply"
+                    className="flex-shrink-0 mb-4 p-1.5 rounded-full bg-muted hover:bg-primary/20 text-muted-foreground hover:text-primary transition-colors"
+                  >
+                    <Reply className="h-3.5 w-3.5" />
+                  </button>
                 )}
               </motion.div>
             );
