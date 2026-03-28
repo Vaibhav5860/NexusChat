@@ -1,8 +1,9 @@
-# ⚡ NexusChat
+# ⚡ NexusOpenChat
 
 Anonymous video & text chat — meet strangers instantly. No signup required.
 
 ![NexusChat](https://img.shields.io/badge/NexusChat-Live-00d4aa?style=for-the-badge)
+
 ![React](https://img.shields.io/badge/React-18-61dafb?style=flat-square&logo=react)
 ![Socket.IO](https://img.shields.io/badge/Socket.IO-4-010101?style=flat-square&logo=socketdotio)
 ![WebRTC](https://img.shields.io/badge/WebRTC-Enabled-333?style=flat-square)
@@ -61,7 +62,7 @@ Anonymous video & text chat — meet strangers instantly. No signup required.
 ### 1. Clone the repo
 
 ```bash
-git clone https://github.com/Vaibhav5860/NexusChat.git
+git clone https://github.com/Vaibhav5860/Nexus-Open-Chat.git
 cd NexusChat
 ```
 
@@ -78,7 +79,7 @@ Edit `server/.env` with your credentials:
 ```env
 GITHUB_TOKEN=ghp_your_token        # GitHub PAT with "repo" scope
 GITHUB_OWNER=Vaibhav5860
-GITHUB_REPO=NexusChat
+GITHUB_REPO=Nexus-Open-Chat
 MAIL_SERVICE=gmail
 MAIL_USER=your_email@gmail.com
 MAIL_PASS=your_app_password         # Gmail App Password
